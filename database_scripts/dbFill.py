@@ -71,7 +71,7 @@ def main(argv):
     conn = http.client.HTTPConnection(baseurl, port)
 
     # HTTP Headers
-    headers = {"Content-type": "application/x-www-form-urlencoded","Accept": "text/plain"}
+    headers = {"Content-type": "application/x-www-form-urlencoded","Accept": "application/json"}
 
     # Array of user IDs
     userIDs = []
@@ -111,14 +111,16 @@ def main(argv):
         assignedUserName = userNames[assignedUser] if assigned else 'unassigned'
         assignedUserEmail = userEmails[assignedUser] if assigned else 'unassigned'
         completed = (randint(0,10) > 5)
-        deadline = (mktime(date.today().timetuple()) + randint(86400,864000)) * 1000
+        # Generate deadline in milliseconds as integer to avoid scientific notation
+        deadline = int((mktime(date.today().timetuple()) + randint(86400,864000)) * 1000)
         description = "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English."
-        params = urllib.parse.urlencode({'name': choice(taskNames), 'deadline': deadline, 'assignedUserName': assignedUserName, 'assignedUser': assignedUserID, 'completed': str(completed).lower(), 'description': description})
+        params = urllib.parse.urlencode({'name': choice(taskNames), 'deadline': str(deadline), 'assignedUserName': assignedUserName, 'assignedUser': assignedUserID, 'completed': str(completed).lower(), 'description': description})
 
         # POST the task
         conn.request("POST", "/api/tasks", params, headers)
         response = conn.getresponse()
         data = response.read()
+        print('RESP_TASK:', data[:200])
         d = json.loads(data)
 
         taskID = str(d['data']['_id'])
