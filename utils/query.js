@@ -10,12 +10,11 @@ function parseJSONParam(value, name) {
 }
 
 function applyQueryParams(modelQuery, params) {
-    var where = params.where;
     var sort = params.sort;
     var select = params.select;
     var skip = params.skip;
     var limit = params.limit;
-    if (where) modelQuery = modelQuery.find(where);
+    // Note: where is already applied in the initial find() call, so we don't need to handle it here
     if (sort) modelQuery = modelQuery.sort(sort);
     if (select) modelQuery = modelQuery.select(select);
     if (skip !== undefined) modelQuery = modelQuery.skip(Number(skip));

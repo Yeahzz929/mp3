@@ -75,10 +75,26 @@ module.exports = function (router) {
 
             // If pendingTasks specified, sync tasks to point back to this user
             if (payload.pendingTasks !== undefined) {
-                if (!Array.isArray(payload.pendingTasks)) return q.badRequest(res, "Field 'pendingTasks' must be an array");
+                // Normalize pendingTasks to array (body-parser may parse as string or array)
+                var pendingTasksArray = [];
+                if (Array.isArray(payload.pendingTasks)) {
+                    pendingTasksArray = payload.pendingTasks;
+                } else if (typeof payload.pendingTasks === 'string') {
+                    // Try to parse as JSON array or comma-separated string
+                    try {
+                        pendingTasksArray = JSON.parse(payload.pendingTasks);
+                        if (!Array.isArray(pendingTasksArray)) {
+                            pendingTasksArray = [payload.pendingTasks];
+                        }
+                    } catch (e) {
+                        pendingTasksArray = payload.pendingTasks.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+                    }
+                } else {
+                    return q.badRequest(res, "Field 'pendingTasks' must be an array");
+                }
 
                 // Remove this user from any tasks currently referencing them but not in new list
-                var newSet = new Set(payload.pendingTasks.map(String));
+                var newSet = new Set(pendingTasksArray.map(String));
                 // Fetch tasks currently assigned to this user and not completed where ID not in newSet
                 var tasksToUnassign = await Task.find({ assignedUser: String(user._id) }).exec();
                 for (var i=0;i<tasksToUnassign.length;i++){
@@ -91,8 +107,8 @@ module.exports = function (router) {
                 }
 
                 // Assign each task in new list to this user
-                for (var j=0;j<payload.pendingTasks.length;j++){
-                    var taskId = String(payload.pendingTasks[j]);
+                for (var j=0;j<pendingTasksArray.length;j++){
+                    var taskId = String(pendingTasksArray[j]);
                     var task = await Task.findById(taskId).exec();
                     if (task) {
                         if (!task.completed) {
@@ -109,8 +125,8 @@ module.exports = function (router) {
 
                 // Set user's pendingTasks = only non-completed tasks from provided list
                 var validPending = [];
-                for (var k=0;k<payload.pendingTasks.length;k++){
-                    var chk = await Task.findById(String(payload.pendingTasks[k])).exec();
+                for (var k=0;k<pendingTasksArray.length;k++){
+                    var chk = await Task.findById(String(pendingTasksArray[k])).exec();
                     if (chk && !chk.completed) validPending.push(String(chk._id));
                 }
                 user.pendingTasks = validPending;

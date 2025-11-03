@@ -59,16 +59,37 @@ module.exports = function (router) {
             var payload = req.body || {};
             if (!payload.name) return q.badRequest(res, "Field 'name' is required");
             if (payload.deadline === undefined || payload.deadline === null || payload.deadline === '') return q.badRequest(res, "Field 'deadline' is required");
-            var deadline = new Date(payload.deadline);
+            
+            // Handle deadline: could be timestamp (number/string) or date string
+            var deadline;
+            if (typeof payload.deadline === 'number' || (typeof payload.deadline === 'string' && /^\d+$/.test(payload.deadline))) {
+                deadline = new Date(Number(payload.deadline));
+            } else {
+                deadline = new Date(payload.deadline);
+            }
             if (isNaN(deadline.getTime())) return q.badRequest(res, "Field 'deadline' must be a valid date");
+
+            // Handle completed: could be string "true"/"false" or boolean
+            var completed = false;
+            if (payload.completed !== undefined && payload.completed !== null && payload.completed !== '') {
+                if (typeof payload.completed === 'string') {
+                    completed = payload.completed.toLowerCase() === 'true';
+                } else {
+                    completed = Boolean(payload.completed);
+                }
+            }
+
+            // Handle assignedUser: empty string should be treated as unassigned
+            var assignedUser = (payload.assignedUser && payload.assignedUser.trim() !== '') ? String(payload.assignedUser) : "";
+            var assignedUserName = payload.assignedUserName || (assignedUser ? "" : "unassigned");
 
             var task = new Task({
                 name: payload.name,
                 description: payload.description || "",
                 deadline: deadline,
-                completed: payload.completed === undefined ? false : Boolean(payload.completed),
-                assignedUser: payload.assignedUser || "",
-                assignedUserName: payload.assignedUserName || (payload.assignedUser ? "" : "unassigned")
+                completed: completed,
+                assignedUser: assignedUser,
+                assignedUserName: assignedUserName
             });
             await task.save();
 
@@ -119,13 +140,28 @@ module.exports = function (router) {
 
             if (payload.name !== undefined) task.name = payload.name;
             if (payload.description !== undefined) task.description = payload.description;
-            if (payload.deadline !== undefined) {
-                var d = new Date(payload.deadline);
+            if (payload.deadline !== undefined && payload.deadline !== null && payload.deadline !== '') {
+                // Handle deadline: could be timestamp (number/string) or date string
+                var d;
+                if (typeof payload.deadline === 'number' || (typeof payload.deadline === 'string' && /^\d+$/.test(payload.deadline))) {
+                    d = new Date(Number(payload.deadline));
+                } else {
+                    d = new Date(payload.deadline);
+                }
                 if (isNaN(d.getTime())) return q.badRequest(res, "Field 'deadline' must be a valid date");
                 task.deadline = d;
             }
-            if (payload.completed !== undefined) task.completed = Boolean(payload.completed);
-            if (payload.assignedUser !== undefined) task.assignedUser = payload.assignedUser;
+            if (payload.completed !== undefined && payload.completed !== null && payload.completed !== '') {
+                // Handle completed: could be string "true"/"false" or boolean
+                if (typeof payload.completed === 'string') {
+                    task.completed = payload.completed.toLowerCase() === 'true';
+                } else {
+                    task.completed = Boolean(payload.completed);
+                }
+            }
+            if (payload.assignedUser !== undefined) {
+                task.assignedUser = (payload.assignedUser && payload.assignedUser.trim() !== '') ? String(payload.assignedUser) : "";
+            }
             if (payload.assignedUserName !== undefined) task.assignedUserName = payload.assignedUserName;
 
             await task.save();
